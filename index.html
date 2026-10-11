@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>黄泉 · 终结技 · 实时渲染</title>
+  <link rel="icon" href="TemplateData/favicon.png">
+  <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+<body>
+  <main id="app">
+    <section id="stage" aria-label="终结技实时渲染画面">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+      <div id="cover">
+        <div class="cover-text">
+          <p class="eyebrow">Honkai: Star Rail · Fan Render</p>
+          <h1>黄泉<span>终结技</span></h1>
+          <p class="sub">残梦尽染，一刀缭断</p>
+        </div>
+        <div class="loader">
+          <div class="bar"><div id="bar-fill"></div></div>
+          <p id="load-text">正在载入 0%</p>
+        </div>
+      </div>
+
+      <div id="hint" hidden>拖动环绕 · 右键平移 · 滚轮缩放</div>
+    </section>
+
+    <section id="controls" aria-label="播放控制" hidden>
+      <div class="row timeline-row">
+        <div id="track">
+          <div class="segments" id="segments"></div>
+          <input id="scrub" type="range" min="1" max="645" value="1" step="1" aria-label="帧位置">
+        </div>
+      </div>
+      <div class="row buttons-row">
+        <div class="group">
+          <button id="btn-prev" class="icon" title="上一帧（←）" aria-label="上一帧">
+            <svg viewBox="0 0 24 24"><path d="M7 5v14M18 6l-8 6 8 6z"/></svg>
+          </button>
+          <button id="btn-play" class="icon primary" title="播放 / 暂停（空格）" aria-label="播放或暂停">
+            <svg id="ico-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+            <svg id="ico-play" viewBox="0 0 24 24" hidden><path d="M7 4.5v15l12-7.5z"/></svg>
+          </button>
+          <button id="btn-next" class="icon" title="下一帧（→）" aria-label="下一帧">
+            <svg viewBox="0 0 24 24"><path d="M17 5v14M6 6l8 6-8 6z"/></svg>
+          </button>
+          <span id="readout"><b id="frame">1</b> / 645 帧 · <span id="time">0.00</span> s</span>
+        </div>
+        <div class="group" id="seg-buttons"></div>
+        <div class="group">
+          <div class="seg-toggle" role="group" aria-label="播放速度">
+            <button data-speed="0.25">0.25×</button>
+            <button data-speed="0.5">0.5×</button>
+            <button data-speed="1" class="on">1×</button>
+          </div>
+          <button id="btn-loop" class="chip on" title="循环播放">循环</button>
+          <button id="btn-free" class="chip" title="自由视角（F）">自由视角</button>
+          <button id="btn-info" class="chip" title="还原说明">说明</button>
+          <button id="btn-full" class="icon" title="全屏" aria-label="全屏">
+            <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <aside id="info" hidden>
+      <h2>还原说明</h2>
+      <dl>
+        <dt>游戏原始数据</dt>
+        <dd>开场与收尾镜头逐帧取自游戏 <code>Skill03_Start/End_Camera</code> 曲线；角色动作为游戏 <code>Skill03</code> 五段动画；黑白保红调色为游戏 LUT <code>Acheron_Ultra_LUT</code>；命中、模糊、抖动等时刻取自技能配置与 Timeline。</dd>
+        <dt>按配置重建</dt>
+        <dd>三斩镜头按战斗镜头配置 <code>Skill31/32/33_Camera</code> 求解，锚点与敌阵位置为标定值。</dd>
+        <dt>近似重做</dt>
+        <dd>刀光、命中花、碎片、白环、水面、天空等特效外形对照实机录屏重做；敌人模型未包含。</dd>
+        <dt>渲染</dt>
+        <dd>Unity 2022.3 URP + <a href="https://github.com/stalomeow/StarRailNPRShader" target="_blank" rel="noopener">StarRailNPRShader</a>（GPL-3.0）实时渲染，60 fps 帧号与离线成片一一对应。</dd>
+      </dl>
+      <p class="fine">非官方同人作品，角色与资源版权归 miHoYo / HoYoverse 所有。</p>
+      <button id="info-close" class="chip">关闭</button>
+    </aside>
+  </main>
+
+  <script>
+    // 片段与 Goo 成片帧号一致（AcheronDirector / bake_goo_skill03_for_unity.py）。
+    const SEGMENTS = [
+      { name: "开场", first: 1, last: 231 },
+      { name: "三斩", first: 232, last: 364 },
+      { name: "收尾", first: 365, last: 645 },
+    ];
+    let FIRST = 1, LAST = 645, FPS = 60;
+    let instance = null;
+    const state = { frame: 1, playing: true, free: false, speed: 1, scrubbing: false, wasPlaying: true, loop: true };
+    const $ = (id) => document.getElementById(id);
+
+    function send(cmd) { if (instance) instance.SendMessage("Director", "Command", cmd); }
+
+    // Unity → 页面（Assets/Acheron/Plugins/WebGL/AcheronBridge.jslib）。
+    window.acheronBridge = {
+      onReady(first, last, fps) {
+        FIRST = first; LAST = last; FPS = fps;
+        $("scrub").min = first; $("scrub").max = last;
+        buildSegments();
+      },
+      onFrame(frame, playing, free, speed) {
+        state.frame = frame; state.playing = playing; state.free = free; state.speed = speed;
+        render();
+      },
+    };
+
+    function buildSegments() {
+      const total = LAST - FIRST + 1;
+      const bands = $("segments"); bands.innerHTML = "";
+      const buttons = $("seg-buttons"); buttons.innerHTML = "";
+      for (const s of SEGMENTS) {
+        const band = document.createElement("div");
+        band.className = "band";
+        band.style.left = ((s.first - FIRST) / total * 100) + "%";
+        band.style.width = ((s.last - s.first + 1) / total * 100) + "%";
+        band.dataset.label = s.name;
+        bands.appendChild(band);
+        const b = document.createElement("button");
+        b.className = "chip seg";
+        b.textContent = s.name;
+        b.title = `跳到${s.name}（第 ${s.first}–${s.last} 帧）`;
+        b.onclick = () => { send("frame:" + s.first); send("play"); };
+        buttons.appendChild(b);
+      }
+    }
+
+    function render() {
+      if (!state.scrubbing) $("scrub").value = state.frame;
+      $("frame").textContent = state.frame;
+      $("time").textContent = ((state.frame - FIRST) / FPS).toFixed(2);
+      // SVG 元素没有 hidden 属性反射，需直接切换 attribute。
+      $("ico-play").toggleAttribute("hidden", state.playing);
+      $("ico-pause").toggleAttribute("hidden", !state.playing);
+      $("btn-free").classList.toggle("on", state.free);
+      $("hint").hidden = !state.free;
+      const pct = (state.frame - FIRST) / (LAST - FIRST) * 100;
+      $("track").style.setProperty("--pct", pct + "%");
+      document.querySelectorAll("#seg-buttons .seg").forEach((b, i) => {
+        const s = SEGMENTS[i];
+        b.classList.toggle("on", state.frame >= s.first && state.frame <= s.last);
+      });
+      document.querySelectorAll("[data-speed]").forEach((b) => b.classList.toggle("on", Number(b.dataset.speed) === state.speed));
+    }
+
+    function bindControls() {
+      $("btn-play").onclick = () => send("toggle");
+      $("btn-prev").onclick = () => send("step:-1");
+      $("btn-next").onclick = () => send("step:1");
+      const scrub = $("scrub");
+      scrub.addEventListener("pointerdown", () => { state.scrubbing = true; state.wasPlaying = state.playing; send("pause"); });
+      scrub.addEventListener("input", () => send("frame:" + scrub.value));
+      const end = () => { if (!state.scrubbing) return; state.scrubbing = false; if (state.wasPlaying) send("play"); };
+      scrub.addEventListener("pointerup", end);
+      scrub.addEventListener("change", end);
+      document.querySelectorAll("[data-speed]").forEach((b) => b.onclick = () => send("speed:" + b.dataset.speed));
+      $("btn-loop").onclick = () => { state.loop = !state.loop; $("btn-loop").classList.toggle("on", state.loop); send("loop:" + (state.loop ? 1 : 0)); };
+      $("btn-free").onclick = () => send("free:" + (state.free ? 0 : 1));
+      $("btn-info").onclick = () => { $("info").hidden = !$("info").hidden; };
+      $("info-close").onclick = () => { $("info").hidden = true; };
+      $("btn-full").onclick = () => {
+        const el = $("app");
+        if (document.fullscreenElement) document.exitFullscreen();
+        else if (el.requestFullscreen) el.requestFullscreen();
+      };
+      window.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
+        if (e.code === "Space") { e.preventDefault(); send("toggle"); }
+        else if (e.code === "ArrowLeft") { e.preventDefault(); send("step:" + (e.shiftKey ? -10 : -1)); }
+        else if (e.code === "ArrowRight") { e.preventDefault(); send("step:" + (e.shiftKey ? 10 : 1)); }
+        else if (e.code === "KeyF") send("free:" + (state.free ? 0 : 1));
+      });
+    }
+
+    // 画布固定 16:9（与原镜头竖向 FOV 构图一致），按可用区域等比缩放。
+    function fitCanvas() {
+      const stage = $("stage");
+      const w = stage.clientWidth, h = stage.clientHeight;
+      let cw = w, ch = Math.round(w * 9 / 16);
+      if (ch > h) { ch = h; cw = Math.round(h * 16 / 9); }
+      const canvas = $("unity-canvas");
+      canvas.style.width = cw + "px";
+      canvas.style.height = ch + "px";
+    }
+    window.addEventListener("resize", fitCanvas);
+    fitCanvas();
+
+    const buildUrl = "Build";
+    const config = {
+      dataUrl: buildUrl + "/WebGL.data.unityweb",
+      frameworkUrl: buildUrl + "/WebGL.framework.js.unityweb",
+      codeUrl: buildUrl + "/WebGL.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "zhiqiangme",
+      productName: "Acheron Ultimate",
+      productVersion: "1.0",
+      matchWebGLToCanvasSize: true,
+    };
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      // 移动端控制分辨率以保证帧率。
+      config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+    }
+
+    if (location.protocol === "file:") {
+      $("load-text").textContent = "请通过本地 HTTP 服务打开（见 README），浏览器不允许 file:// 加载 WebAssembly。";
+    } else {
+      const script = document.createElement("script");
+      script.src = buildUrl + "/WebGL.loader.js";
+      script.onload = () => {
+        createUnityInstance($("unity-canvas"), config, (p) => {
+          $("bar-fill").style.width = (100 * p) + "%";
+          $("load-text").textContent = p < 0.9 ? `正在载入 ${Math.round(p * 100)}%` : "正在初始化着色器…";
+        }).then((u) => {
+          instance = u;
+          $("cover").classList.add("done");
+          setTimeout(() => $("cover").remove(), 700);
+          $("controls").hidden = false;
+          bindControls();
+          fitCanvas();
+          render();
+        }).catch((message) => {
+          $("load-text").textContent = "载入失败：" + message;
+        });
+      };
+      document.body.appendChild(script);
+    }
+  </script>
+</body>
+</html>

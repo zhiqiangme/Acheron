@@ -1,0 +1,201 @@
+[hidden] { display: none !important; }
+
+:root {
+  --bg: #0b0b0d;
+  --panel: rgba(18, 18, 22, 0.92);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #e9e6e6;
+  --muted: #9a9497;
+  --red: #e0212f;
+  --red-soft: rgba(224, 33, 47, 0.18);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+#unity-canvas {
+  display: block;
+  background: #000;
+  outline: none;
+}
+
+/* ---------------- 载入封面 ---------------- */
+#cover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(20px, 5vw, 64px);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0.1) 100%),
+              url("cover.jpg") center / cover no-repeat;
+  transition: opacity 0.6s ease;
+}
+#cover.done { opacity: 0; pointer-events: none; }
+.cover-text h1 {
+  margin: 0.1em 0 0;
+  font-size: clamp(40px, 8vw, 96px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.cover-text h1 span {
+  display: block;
+  margin-top: 0.35em;
+  font-size: 0.32em;
+  font-weight: 500;
+  letter-spacing: 0.5em;
+  color: var(--red);
+}
+.eyebrow { margin: 0; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; font-size: 12px; }
+.sub { margin: 1.2em 0 0; color: var(--muted); letter-spacing: 0.3em; }
+.loader { width: min(420px, 100%); }
+.bar { height: 2px; background: var(--line); overflow: hidden; }
+#bar-fill { height: 100%; width: 0; background: var(--red); transition: width 0.2s ease; }
+#load-text { margin: 10px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0.1em; }
+
+#hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* ---------------- 控制条 ---------------- */
+#controls {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 10px 16px 12px;
+}
+.row { display: flex; align-items: center; gap: 12px; }
+.buttons-row { justify-content: space-between; flex-wrap: wrap; row-gap: 8px; margin-top: 8px; }
+.group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+#track { position: relative; flex: 1; height: 28px; }
+.segments { position: absolute; inset: 9px 0 auto; height: 10px; }
+.band {
+  position: absolute;
+  top: 0;
+  height: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+.band::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -15px;
+  left: 4px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#scrub {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+#scrub::-webkit-slider-runnable-track {
+  height: 4px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--red) var(--pct, 0%), rgba(255, 255, 255, 0.18) var(--pct, 0%));
+}
+#track { --pct: 0%; }
+#scrub::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); }
+#scrub::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--red); }
+#scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+#scrub::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+button:hover { border-color: rgba(255, 255, 255, 0.35); }
+button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.icon { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; }
+.icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon.primary { border-color: var(--red); background: var(--red-soft); }
+.icon.primary svg path { fill: currentColor; }
+#ico-pause path { fill: none; }
+.chip { height: 30px; padding: 0 12px; font-size: 13px; }
+.chip.on { border-color: var(--red); background: var(--red-soft); }
+.seg-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg-toggle button { border: 0; border-radius: 0; height: 30px; padding: 0 10px; font-size: 12px; color: var(--muted); }
+.seg-toggle button.on { color: var(--text); background: var(--red-soft); }
+#readout { margin-left: 8px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+#readout b { color: var(--text); font-weight: 600; }
+
+/* ---------------- 说明 ---------------- */
+#info {
+  position: absolute;
+  right: 16px;
+  bottom: 120px;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 140px);
+  overflow: auto;
+  padding: 18px 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+#info h2 { margin: 0 0 10px; font-size: 16px; }
+#info dt { margin-top: 10px; color: var(--red); font-size: 12px; letter-spacing: 0.1em; }
+#info dd { margin: 4px 0 0; color: var(--text); font-size: 13px; }
+#info code { font-size: 12px; color: var(--muted); }
+#info a { color: var(--text); }
+#info .fine { margin: 14px 0 12px; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 640px) {
+  #controls { padding: 8px 12px 10px; }
+  #readout { flex-basis: 100%; margin: 4px 0 0; }
+  .band::after { display: none; }
+  #info { bottom: 160px; }
+}
