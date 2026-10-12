@@ -93,6 +93,39 @@ html, body {
   pointer-events: none;
 }
 
+/* 手动模式停顿提示：可点击进入下一段，底边进度条为自动进入的倒计时。 */
+#next-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  overflow: hidden;
+  padding: 6px 16px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+#next-hint::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: var(--hold, 0%);
+  background: var(--red);
+}
+#next-hint kbd {
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* ---------------- 控制条 ---------------- */
 #controls {
   background: var(--panel);
@@ -119,6 +152,15 @@ html, body {
   font-size: 10px;
   color: var(--muted);
   white-space: nowrap;
+}
+/* 手动模式的停顿点。 */
+.stop {
+  position: absolute;
+  top: -1px;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  background: var(--red);
 }
 #scrub {
   position: absolute;
@@ -166,6 +208,7 @@ button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 #ico-pause path { fill: none; }
 .chip { height: 30px; padding: 0 12px; font-size: 13px; }
 .chip.on { border-color: var(--red); background: var(--red-soft); }
+.chip:disabled { opacity: 0.4; cursor: default; }
 .seg-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg-toggle button { border: 0; border-radius: 0; height: 30px; padding: 0 10px; font-size: 12px; color: var(--muted); }
 .seg-toggle button.on { color: var(--text); background: var(--red-soft); }

@@ -25,6 +25,7 @@
       </div>
 
       <div id="hint" hidden>拖动环绕 · 右键平移 · 滚轮缩放</div>
+      <button id="next-hint" hidden>下一段 <kbd>空格</kbd></button>
     </section>
 
     <section id="controls" aria-label="播放控制" hidden>
@@ -46,10 +47,15 @@
           <button id="btn-next" class="icon" title="下一帧（→）" aria-label="下一帧">
             <svg viewBox="0 0 24 24"><path d="M17 5v14M6 6l8 6-8 6z"/></svg>
           </button>
+          <button id="btn-next-seg" class="chip" title="进入下一段（空格）" hidden>下一段</button>
           <span id="readout"><b id="frame">1</b> / 645 帧 · <span id="time">0.00</span> s</span>
         </div>
         <div class="group" id="seg-buttons"></div>
         <div class="group">
+          <div class="seg-toggle" role="group" aria-label="播放模式">
+            <button data-mode="auto" class="on" title="连续播放">自动</button>
+            <button data-mode="manual" title="开场、斩一、斩二末尾慢放停顿，空格或等待 3 秒进入下一段">手动</button>
+          </div>
           <div class="seg-toggle" role="group" aria-label="播放速度">
             <button data-speed="0.25">0.25×</button>
             <button data-speed="0.5">0.5×</button>
@@ -89,9 +95,11 @@
       { name: "三斩", first: 232, last: 364 },
       { name: "收尾", first: 365, last: 645 },
     ];
+    // 手动模式的停顿帧（与 AcheronDirector.Stops 一致）：开场、斩一、斩二末帧；斩三与收尾连播。
+    const STOPS = [231, 289, 353];
     let FIRST = 1, LAST = 645, FPS = 60;
     let instance = null;
-    const state = { frame: 1, playing: true, free: false, speed: 1, scrubbing: false, wasPlaying: true, loop: true };
+    const state = { frame: 1, playing: true, free: false, speed: 1, manual: false, hold: -1, scrubbing: false, wasPlaying: true, loop: true };
     const $ = (id) => document.getElementById(id);
 
     function send(cmd) { if (instance) instance.SendMessage("Director", "Command", cmd); }
@@ -103,8 +111,9 @@
         $("scrub").min = first; $("scrub").max = last;
         buildSegments();
       },
-      onFrame(frame, playing, free, speed) {
+      onFrame(frame, playing, free, speed, manual, hold) {
         state.frame = frame; state.playing = playing; state.free = free; state.speed = speed;
+        state.manual = manual; state.hold = hold;
         render();
       },
     };
@@ -127,6 +136,13 @@
         b.onclick = () => { send("frame:" + s.first); send("play"); };
         buttons.appendChild(b);
       }
+      for (const f of STOPS) {
+        const tick = document.createElement("div");
+        tick.className = "stop";
+        tick.style.left = ((f - FIRST + 1) / total * 100) + "%";
+        tick.title = `手动模式停顿点（第 ${f} 帧）`;
+        bands.appendChild(tick);
+      }
     }
 
     function render() {
@@ -145,6 +161,14 @@
         b.classList.toggle("on", state.frame >= s.first && state.frame <= s.last);
       });
       document.querySelectorAll("[data-speed]").forEach((b) => b.classList.toggle("on", Number(b.dataset.speed) === state.speed));
+      document.querySelectorAll("[data-mode]").forEach((b) => b.classList.toggle("on", (b.dataset.mode === "manual") === state.manual));
+      document.querySelectorAll(".stop").forEach((t) => t.hidden = !state.manual);
+      $("btn-next-seg").hidden = !state.manual;
+      $("btn-play").title = state.manual ? "播放 / 暂停" : "播放 / 暂停（空格）";
+      // 手动模式播完即停，循环开关不起作用。
+      $("btn-loop").disabled = state.manual;
+      $("next-hint").hidden = !(state.manual && state.hold >= 0);
+      $("next-hint").style.setProperty("--hold", Math.max(0, state.hold) * 100 + "%");
     }
 
     function bindControls() {
@@ -158,6 +182,9 @@
       scrub.addEventListener("pointerup", end);
       scrub.addEventListener("change", end);
       document.querySelectorAll("[data-speed]").forEach((b) => b.onclick = () => send("speed:" + b.dataset.speed));
+      document.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => send("mode:" + b.dataset.mode));
+      $("btn-next-seg").onclick = () => send("next");
+      $("next-hint").onclick = () => send("next");
       $("btn-loop").onclick = () => { state.loop = !state.loop; $("btn-loop").classList.toggle("on", state.loop); send("loop:" + (state.loop ? 1 : 0)); };
       $("btn-free").onclick = () => send("free:" + (state.free ? 0 : 1));
       $("btn-info").onclick = () => { $("info").hidden = !$("info").hidden; };
@@ -169,7 +196,8 @@
       };
       window.addEventListener("keydown", (e) => {
         if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
-        if (e.code === "Space") { e.preventDefault(); send("toggle"); }
+        // 手动模式下空格进入下一段，暂停用播放按钮。
+        if (e.code === "Space") { e.preventDefault(); send(state.manual ? "next" : "toggle"); }
         else if (e.code === "ArrowLeft") { e.preventDefault(); send("step:" + (e.shiftKey ? -10 : -1)); }
         else if (e.code === "ArrowRight") { e.preventDefault(); send("step:" + (e.shiftKey ? 10 : 1)); }
         else if (e.code === "KeyF") send("free:" + (state.free ? 0 : 1));
