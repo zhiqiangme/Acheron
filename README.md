@@ -58,4 +58,4 @@ TemplateData/     样式、封面、图标
 ## 许可与声明
 
 - 非官方同人作品，仅供学习交流。角色模型、动作、贴图等游戏资源版权归 miHoYo / HoYoverse 所有。
-- 构建产物包含 [StarRailNPRShader](https://github.com/stalomeow/StarRailNPRShader)（GPL-3.0）编译后的着色器与脚本，其源代码见该仓库（本构建使用 fork [zhiqiangme/StarRailNPRShader](https://github.com/zhiqiangme/StarRailNPRShader) 的 `bf44567`）。
+- 构建产物包含 [StarRailNPRShader](https://github.com/stalomeow/StarRailNPRShader)（GPL-3.0）编译后的着色器与脚本，其源代码见该仓库（本构建使用 fork [zhiqiangme/StarRailNPRShader](https://github.com/zhiqiangme/StarRailNPRShader) `webgl` 分支的 `5be450a`：在 `bf44567` 基础上去掉角色着色器按渲染目标索引的 Blend/ColorMask，否则 WebGL2 会判这些 Pass 不支持、角色不显示）。
