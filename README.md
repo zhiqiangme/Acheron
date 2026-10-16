@@ -3,7 +3,7 @@
 崩坏：星穹铁道「黄泉」终结技的网页实时渲染：Unity 2022.3 WebGL（URP + [StarRailNPRShader](https://github.com/stalomeow/StarRailNPRShader)）。
 画面逐帧对应同目录工程的 Goo Engine 离线成片（645 帧，60 fps，10.75 秒）。可暂停、逐帧查看、切换自由视角。
 
-在线地址：<https://acheron.varka.cn/>（GitHub Pages 托管，自定义域名由仓库根目录 `CNAME` 文件绑定，DNS 在 DNSPod 以 CNAME 指向 `zhiqiangme.github.io`）。
+在线地址：<https://acheron.kalpas.cc/>（GitHub Pages 托管，自定义域名由仓库根目录 `CNAME` 文件绑定，DNS 以 CNAME 指向 `zhiqiangme.github.io`）。
 
 ## 本地打开
 
